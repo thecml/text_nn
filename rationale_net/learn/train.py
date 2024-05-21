@@ -12,12 +12,12 @@ import sklearn.metrics
 import rationale_net.utils.learn as learn
 
 
-def train_model(train_data, dev_data, model, gen, args):
+def train_model(train_data, valid_data, model, gen, args):
     '''
-    Train model and tune on dev set. If model doesn't improve dev performance within args.patience
+    Train model and tune on valid set. If model doesn't improve valid performance within args.patience
     epochs, then halve the learning rate, restore the model to best and continue training.
 
-    At the end of training, the function will restore the model to best dev version.
+    At the end of training, the function will restore the model to best valid version.
 
     returns epoch_stats: a dictionary of epoch level metrics for train and test
     returns model : best model from this call to train
@@ -31,21 +31,18 @@ def train_model(train_data, dev_data, model, gen, args):
     optimizer = learn.get_optimizer([model, gen], args)
 
     num_epoch_sans_improvement = 0
-    epoch_stats = metrics.init_metrics_dictionary(modes=['train', 'dev'])
+    epoch_stats = metrics.init_metrics_dictionary(modes=['train', 'valid'])
     step = 0
-    tuning_key = "dev_{}".format(args.tuning_metric)
+    tuning_key = "valid_{}".format(args.tuning_metric)
     best_epoch_func = min if tuning_key == 'loss' else max
 
-    train_loader = learn.get_train_loader(train_data, args)
-    dev_loader = learn.get_dev_loader(dev_data, args)
-
-
-
+    train_loader = train_data # learn.get_train_loader(train_data, args)
+    valid_loader = valid_data # learn.get_valid_loader(valid_data, args)
 
     for epoch in range(1, args.epochs + 1):
 
         print("-------------\nEpoch {}:\n".format(epoch))
-        for mode, dataset, loader in [('Train', train_data, train_loader), ('Dev', dev_data, dev_loader)]:
+        for mode, dataset, loader in [('Train', train_data, train_loader), ('Valid', valid_data, valid_loader)]:
             train_model = mode == 'Train'
             print('{}'.format(mode))
             key_prefix = mode.lower()
@@ -64,7 +61,7 @@ def train_model(train_data, dev_data, model, gen, args):
             print(log_statement)
 
 
-        # Save model if beats best dev
+        # Save model if beats best valid
         best_func = min if args.tuning_metric == 'loss' else max
         if best_func(epoch_stats[tuning_key]) == epoch_stats[tuning_key][-1]:
             num_epoch_sans_improvement = 0
@@ -78,7 +75,7 @@ def train_model(train_data, dev_data, model, gen, args):
             num_epoch_sans_improvement += 1
 
         if not train_model:
-            print('---- Best Dev {} is {:.4f} at epoch {}'.format(
+            print('---- Best Valid {} is {:.4f} at epoch {}'.format(
                 args.tuning_metric,
                 epoch_stats[tuning_key][epoch_stats['best_epoch']],
                 epoch_stats['best_epoch'] + 1))
@@ -97,7 +94,7 @@ def train_model(train_data, dev_data, model, gen, args):
             args.lr *= .5
             optimizer = learn.get_optimizer([model, gen], args)
 
-    # Restore model to best dev performance
+    # Restore model to best valid performance
     if os.path.exists(args.model_path):
         model.cpu()
         model = torch.load(args.model_path)
@@ -152,7 +149,7 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
     Train model for one pass of train data, and return loss, acccuracy
     '''
     eval_model = not train_model
-    data_iter = data_loader.__iter__()
+    #data_iter = iter(data_loader)
 
     losses = []
     obj_losses = []
@@ -171,69 +168,73 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
         gen.eval()
         model.eval()
 
-    num_batches_per_epoch = len(data_iter)
+    num_batches_per_epoch = len(data_loader)
     if train_model:
-        num_batches_per_epoch = min(len(data_iter), 10000)
+        num_batches_per_epoch = min(len(data_loader), 10000)
 
     for _ in tqdm.tqdm(range(num_batches_per_epoch)):
-        batch = data_iter.next()
-        if train_model:
-            step += 1
-            if  step % 100 == 0 or args.debug_mode:
-                args.gumbel_temprature = max( np.exp((step+1) *-1* args.gumbel_decay), .05)
+        
+        for i, (inputs, labels) in enumerate(data_loader):
+            
+            #batch = next(data_iter)
+            if train_model:
+                step += 1
+                if  step % 100 == 0 or args.debug_mode:
+                    args.gumbel_temprature = max( np.exp((step+1) *-1* args.gumbel_decay), .05)
 
-        x_indx = learn.get_x_indx(batch, args, eval_model)
-        text = batch['text']
-        y = autograd.Variable(batch['y'], volatile=eval_model)
+            #x_indx = learn.get_x_indx(batch, args, eval_model)
+            x_indx = inputs
+            #text = batch['text'] # TODO
+            #y = autograd.Variable(batch['y'], volatile=eval_model)
+            y = labels
 
-        if args.cuda:
-            x_indx, y = x_indx.cuda(), y.cuda()
+            if args.cuda:
+                x_indx, y = x_indx.cuda(), y.cuda()
 
-        if train_model:
-            optimizer.zero_grad()
+            if train_model:
+                optimizer.zero_grad()
 
-        if args.get_rationales:
-            mask, z = gen(x_indx)
-        else:
-            mask = None
+            if args.get_rationales:
+                mask, z = gen(x_indx)
+            else:
+                mask = None
 
-        logit, _ = model(x_indx, mask=mask)
+            logits = model(x_indx.float(), mask=mask)
 
-        if args.use_as_tagger:
-            logit = logit.view(-1, 2)
-            y = y.view(-1)
+            if args.use_as_tagger:
+                logits = logits.view(-1, 2)
+                y = y.view(-1)
 
-        loss = get_loss(logit, y, args)
-        obj_loss = loss
+            loss = get_loss(logits, y.long(), args)
+            obj_loss = loss
 
-        if args.get_rationales:
-            selection_cost, continuity_cost = gen.loss(mask, x_indx)
+            if args.get_rationales:
+                #selection_cost, continuity_cost = gen.loss(mask, x_indx) # TODO
+                selection_cost = gen.loss(mask, x_indx)
+                
+                loss += args.selection_lambda * selection_cost
+                #loss += args.continuity_lambda * continuity_cost # TODO
 
-            loss += args.selection_lambda * selection_cost
-            loss += args.continuity_lambda * continuity_cost
+            if train_model:
+                loss.backward()
+                optimizer.step()
 
-        if train_model:
-            loss.backward()
-            optimizer.step()
+            if args.get_rationales:
+                k_selection_losses.append(selection_cost.detach().numpy())
+                #k_continuity_losses.append( generic.tensor_to_numpy(continuity_cost)) # TODO
 
-        if args.get_rationales:
-            k_selection_losses.append( generic.tensor_to_numpy(selection_cost))
-            k_continuity_losses.append( generic.tensor_to_numpy(continuity_cost))
+            obj_losses.append(obj_loss.detach().numpy())
+            losses.append(loss.detach().numpy())
+            batch_softmax = F.softmax(logits, dim=-1).cpu()
+            preds.extend(torch.max(batch_softmax, 1)[1].view(y.size()).data.numpy())
 
-        obj_losses.append(generic.tensor_to_numpy(obj_loss))
-        losses.append( generic.tensor_to_numpy(loss) )
-        batch_softmax = F.softmax(logit, dim=-1).cpu()
-        preds.extend(torch.max(batch_softmax, 1)[1].view(y.size()).data.numpy())
+            #texts.extend(text) # TODO 
+            #rationales.extend(learn.get_rationales(mask, text)) # TODO
 
-        texts.extend(text)
-        rationales.extend(learn.get_rationales(mask, text))
-
-        if args.use_as_tagger:
-            golds.extend(batch['y'].view(-1).numpy())
-        else:
-            golds.extend(batch['y'].numpy())
-
-
+            if args.use_as_tagger:
+                golds.extend(labels.view(-1).numpy())
+            else:
+                golds.extend(labels.numpy())
 
     epoch_metrics = metrics.get_metrics(preds, golds, args)
 

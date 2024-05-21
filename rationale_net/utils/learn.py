@@ -40,14 +40,14 @@ def get_rationales(mask, text):
 
 
 
-def get_dev_loader(dev_data, args):
-    dev_loader = data.DataLoader(
-        dev_data,
+def get_valid_loader(valid_data, args):
+    valid_loader = data.DataLoader(
+        valid_data,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
         drop_last=False)
-    return dev_loader
+    return valid_loader
 
 def get_optimizer(models, args):
     '''

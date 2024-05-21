@@ -43,3 +43,35 @@ class Tagger(nn.Module):
         ## hidden layer takes activ transposed to dim (batch_size, max_length, len(filters)*filter_num) and outputs logit of dim (batch_size, max_length, num_tags)
         logit = self.hidden(torch.transpose(activ, 1, 2))
         return logit, self.hidden
+
+class TaggerTab(nn.Module):
+
+    def __init__(self, args):
+        super(TaggerTab, self).__init__()
+        self.args = args
+        self.hidden = nn.Linear(32, args.num_tags)
+        
+        self.dropout = nn.Dropout(p=0.25)
+
+    
+    def forward(self, x_indx, mask):
+        '''Given input x_indx of dim (batch_size, 1, max_length), return z (batch, length) such that z
+        can act as element-wise mask on x'''
+        if self.args.model_form == 'cnn':
+            ## embedding layer takes in dim (batch_size, max_length), outputs x of dim (batch_size, max_length, hidden_dim)
+            x = self.embedding_layer(x_indx.squeeze(1))
+        
+            if self.args.cuda:
+                x = x.cuda()
+            ## switch x to dim (batch_size, hidden_dim, max_length)
+            x = torch.transpose(x, 1, 2)
+            ## activ of dim (batch_size, len(filters)*filter_num, max_length)
+            activ = self.cnn(x)
+        else:
+            if self.args.cuda:
+                x = x.cuda()
+            x = torch.transpose(x, 1, 2)
+
+        ## hidden layer takes activ transposed to dim (batch_size, max_length, len(filters)*filter_num) and outputs logit of dim (batch_size, max_length, num_tags)
+        logit = self.hidden(torch.transpose(x, 1, 2))
+        return logit, self.hidden

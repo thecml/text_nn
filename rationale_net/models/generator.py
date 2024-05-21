@@ -35,7 +35,7 @@ class Generator(nn.Module):
         '''
             Returns prob of each token being selected
         '''
-        activ = activ.transpose(1,2)
+        activ = activ.transpose(1, 2)
         logits = self.hidden(activ)
         probs = learn.gumbel_softmax(logits, self.args.gumbel_temprature, self.args.cuda)
         z = probs[:,:,1]
@@ -85,3 +85,73 @@ class Generator(nn.Module):
         continuity_cost = torch.mean( torch.sum( torch.abs( l_padded_mask - r_padded_mask ) , dim=1) )
         return selection_cost, continuity_cost
 
+class GeneratorTab(nn.Module):
+
+    def __init__(self, n_features, args):
+        super(GeneratorTab, self).__init__()
+        self.args = args
+        if args.model_form == 'cnn':
+            self.cnn = cnn.CNN(args, max_pool_over_time = False)
+
+        self.z_dim = 2
+
+        self.hidden = nn.Linear(n_features, self.z_dim)
+        self.dropout = nn.Dropout(args.dropout)
+
+    def  __z_forward(self, activ):
+        '''
+            Returns prob of each token being selected
+        '''
+        activ = activ.transpose(0, 1)
+        logits = self.hidden(activ)
+        probs = learn.gumbel_softmax(logits, self.args.gumbel_temprature, self.args.cuda)
+        z = probs[:,1]
+        return z
+
+    def forward(self, x_indx):
+        '''
+            Given input x_indx of dim (batch, length), return z (batch, length) such that z
+            can act as element-wise mask on x
+        '''
+        if self.args.model_form == 'cnn':
+            x = self.embedding_layer(x_indx.squeeze(1))
+            if self.args.cuda:
+                x = x.cuda()
+            x = torch.transpose(x, 1, 2) # Switch X to (Batch, Embed, Length)
+            activ = self.cnn(x)
+        else:
+            if self.args.cuda:
+                x = x.cuda()
+            #x = x_indx.squeeze(1)
+            #activ = torch.transpose(x, 1, 2)
+            
+        x = x_indx.squeeze(1)
+        activ = torch.transpose(x, 0, 1)
+        z = self._GeneratorTab__z_forward(activ)
+        mask = self.sample(z)
+        return mask, z
+
+
+    def sample(self, z):
+        '''
+            Get mask from probablites at each token. Use gumbel
+            softmax at train time, hard mask at test time
+        '''
+        mask = z
+        if self.training:
+            mask = z
+        else:
+            ## pointwise set <.5 to 0 >=.5 to 1
+            mask = learn.get_hard_mask(z)
+        return mask
+
+
+    def loss(self, mask, x_indx):
+        '''
+            Compute the generator specific costs, i.e selection cost, continuity cost, and global vocab cost
+        '''
+        selection_cost = torch.mean(torch.sum(mask, dim=0)) # torch.mean(torch.sum(mask, dim=1))
+        #l_padded_mask =  torch.cat( [mask[:,0].unsqueeze(1), mask] , dim=1)
+        #r_padded_mask =  torch.cat( [mask, mask[:,-1].unsqueeze(1)] , dim=1)
+        #continuity_cost = torch.mean( torch.sum( torch.abs( l_padded_mask - r_padded_mask ) , dim=1) )
+        return selection_cost #, continuity_cost

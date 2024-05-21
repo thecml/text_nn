@@ -36,7 +36,6 @@ def get_metrics(preds, golds, args):
         metrics['precision'] = sklearn.metrics.precision_score(y_true=golds, y_pred=preds, average="weighted")
         metrics['recall'] = sklearn.metrics.recall_score(y_true=golds,y_pred=preds, average="weighted")
         metrics['f1'] = sklearn.metrics.f1_score(y_true=golds,y_pred=preds, average="weighted")
-
         metrics['mse'] = "NA"
 
     elif args.objective == 'mse':

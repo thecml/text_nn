@@ -1,5 +1,5 @@
 # Data dirs
-data/
+#data/
 # Byte-compiled / optimized / DLL files
 venv3
 logs
@@ -20,7 +20,7 @@ snapshot
 *.txt
 *.png
 *.results
-*.csv
+#*.csv
 # Distribution / packaging
 .Python
 env/
@@ -114,3 +114,4 @@ ENV/
 
 # mypy
 .mypy_cache/
+.vscode/launch.json
