@@ -98,14 +98,14 @@ class GeneratorTab(nn.Module):
 
         self.z_dim = 2
 
-        self.hidden = nn.Linear(args.hidden_dim, self.z_dim)
+        self.hidden = nn.Linear((len(args.filters)* args.filter_num), self.z_dim)
         self.dropout = nn.Dropout(args.dropout)
 
-    def z_forward(self, activ):
+    def z_forward(self, x):
         '''
             Returns prob of each token being selected
         '''
-        activ = activ.transpose(0, 1)
+        activ = x.transpose(1, 2)
         logits = self.hidden(activ)
         probs = learn.gumbel_softmax(logits, self.args.gumbel_temprature, self.args.cuda)
         z = probs[:,1] # shape = [B, N_FT]
@@ -117,7 +117,8 @@ class GeneratorTab(nn.Module):
             can act as element-wise mask on x
         '''
         if self.args.model_form == 'cnn':
-            x = self.embedding_layer(x_indx.squeeze(1))
+            #x = self.embedding_layer(x_indx.squeeze(1))
+            x = x_indx
             if self.args.cuda:
                 x = x.cuda()
             x = torch.transpose(x, 1, 2) # Switch X to (Batch, Embed, Length)
@@ -125,10 +126,9 @@ class GeneratorTab(nn.Module):
         else:
             if self.args.cuda:
                 x = x.cuda()
-            x = torch.transpose(x_indx, 1, 2)
-            activ = self.mlp(x)
-            activ = x
-            
+            #x = torch.transpose(x_indx, 1, 2)
+            #activ = self.mlp(x_indx)
+        
         z = self.z_forward(F.relu(activ))
         mask = self.sample(z)
         return mask, z

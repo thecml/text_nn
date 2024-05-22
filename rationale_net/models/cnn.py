@@ -14,7 +14,7 @@ class CNN(nn.Module):
         for layer in range(args.num_layers):
             convs = []
             for filt in args.filters:
-                in_channels =  args.embedding_dim if layer == 0 else args.filter_num * len( args.filters)
+                in_channels = 14 if layer == 0 else args.filter_num * len( args.filters)
                 kernel_size = filt
                 new_conv = nn.Conv1d(in_channels=in_channels, out_channels=args.filter_num, kernel_size=kernel_size)
                 self.add_module( 'layer_'+str(layer)+'_conv_'+str(filt), new_conv)
@@ -34,7 +34,7 @@ class CNN(nn.Module):
                 left_pad = conv.kernel_size[0] - 1
                 pad_tensor_size = [d for d in layer_activ.size()]
                 pad_tensor_size[2] = left_pad
-                left_pad_tensor =autograd.Variable( torch.zeros( pad_tensor_size ) )
+                left_pad_tensor = autograd.Variable( torch.zeros( pad_tensor_size ) )
                 if self.args.cuda:
                     left_pad_tensor = left_pad_tensor.cuda()
                 padded_activ = torch.cat( (left_pad_tensor, layer_activ), dim=2)

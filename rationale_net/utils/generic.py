@@ -35,7 +35,7 @@ def parse_args():
     # data loading
     parser.add_argument('--num_workers' , type=int, default=4, help='num workers for data loader')
     # model
-    parser.add_argument('--model_form', type=str, default='', help="Form of model, i.e cnn, rnn, etc.")
+    parser.add_argument('--model_form', type=str, default='cnn', help="Form of model, i.e cnn, rnn, etc.")
     parser.add_argument('--hidden_dim', type=int, default=100, help="Dim of hidden layer")
     parser.add_argument('--num_layers', type=int, default=1, help="Num layers of model_form to use")
     parser.add_argument('--dropout', type=float, default=0.1, help='the probability for dropout [default: 0.5]')
