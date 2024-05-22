@@ -184,6 +184,7 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
 
             #x_indx = learn.get_x_indx(batch, args, eval_model)
             x_indx = inputs
+            x_indx = x_indx[:, None, :]
             #text = batch['text'] # TODO
             #y = autograd.Variable(batch['y'], volatile=eval_model)
             y = labels

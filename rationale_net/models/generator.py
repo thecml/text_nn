@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.autograd as autograd
 import torch.nn.functional as F
 import rationale_net.models.cnn as cnn
+import rationale_net.models.mlp as mlp
 import rationale_net.utils.learn as learn
 import pdb
 
@@ -92,20 +93,22 @@ class GeneratorTab(nn.Module):
         self.args = args
         if args.model_form == 'cnn':
             self.cnn = cnn.CNN(args, max_pool_over_time = False)
+        else:
+            self.mlp = mlp.MLP(args)
 
         self.z_dim = 2
 
-        self.hidden = nn.Linear(n_features, self.z_dim)
+        self.hidden = nn.Linear(args.hidden_dim, self.z_dim)
         self.dropout = nn.Dropout(args.dropout)
 
-    def  __z_forward(self, activ):
+    def z_forward(self, activ):
         '''
             Returns prob of each token being selected
         '''
         activ = activ.transpose(0, 1)
         logits = self.hidden(activ)
         probs = learn.gumbel_softmax(logits, self.args.gumbel_temprature, self.args.cuda)
-        z = probs[:,1]
+        z = probs[:,1] # shape = [B, N_FT]
         return z
 
     def forward(self, x_indx):
@@ -122,12 +125,11 @@ class GeneratorTab(nn.Module):
         else:
             if self.args.cuda:
                 x = x.cuda()
-            #x = x_indx.squeeze(1)
-            #activ = torch.transpose(x, 1, 2)
+            x = torch.transpose(x_indx, 1, 2)
+            activ = self.mlp(x)
+            activ = x
             
-        x = x_indx.squeeze(1)
-        activ = torch.transpose(x, 0, 1)
-        z = self._GeneratorTab__z_forward(activ)
+        z = self.z_forward(F.relu(activ))
         mask = self.sample(z)
         return mask, z
 

@@ -14,7 +14,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Rationale-Net Classifier')
     #setup
     parser.add_argument('--train', action='store_true', default=True, help='Whether or not to train model')
-    parser.add_argument('--test', action='store_true', default=False, help='Whether or not to run model on test set')
+    parser.add_argument('--test', action='store_true', default=True, help='Whether or not to run model on test set')
     # device
     parser.add_argument('--cuda', action='store_true', default=False, help='enable the gpu' )
     parser.add_argument('--num_gpus', type=int, default=1, help='Num GPUs to use. More than one gpu turns on multi_gpu training with nn.DataParallel.')
@@ -48,7 +48,7 @@ def parse_args():
 
     # gumbel
     parser.add_argument('--gumbel_temprature', type=float, default=1, help="Start temprature for gumbel softmax. This is annealed via exponential decay")
-    parser.add_argument('--gumbel_decay', type=float, default=1e-5, help="Start temprature for gumbel softmax. This is annealed via linear decay")
+    parser.add_argument('--gumbel_decay', type=float, default=1e-5, help="Start decay for gumbel softmax. This is annealed via linear decay")
     # rationale
     parser.add_argument('--get_rationales',  action='store_true', default=True, help="output attributions for dataset. Note, will only be stored for test set in results file, as indicated by results_path")
     parser.add_argument('--selection_lambda', type=float, default=.01, help="y1 in Gen cost L + y1||z|| + y2|zt - zt-1| + y3|{z}|")
