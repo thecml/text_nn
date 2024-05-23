@@ -3,16 +3,17 @@ import torch
 import pandas as pd
 from pathlib import Path
 import os
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 class IncomeDataset(Dataset):
     """Students Performance dataset."""
 
     def __init__(self, file_name):
         df = pd.read_csv(file_name)
-        df = df.sample(1000).reset_index(drop=True) # TODO use only 1000 samples
+        df = df.sample(1000).reset_index(drop=True) # TODO
         
         self.target = 'income'
+        self.n_features = df.shape[1] - 1
 
         # Do some label encoding
         categorical_columns = []
@@ -28,9 +29,15 @@ class IncomeDataset(Dataset):
         
         # One-hot encoding of categorical variables
         self.data = df.astype('float32')
-
-        # Save target and predictors
-        self.X = self.data.drop(self.target, axis=1)
+        
+        # Normalize features
+        X_features = self.data.drop(self.target, axis=1)
+        normalized_X_features = pd.DataFrame(
+            StandardScaler().fit_transform(X_features),
+            columns = X_features.columns)
+        
+        # Save features and target
+        self.X = normalized_X_features
         self.y = self.data[self.target]
 
     def __len__(self):

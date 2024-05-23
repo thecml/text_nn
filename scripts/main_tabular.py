@@ -18,7 +18,7 @@ from pathlib import Path
 import wget
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader, random_split
 
 class dotdict(dict):
@@ -34,25 +34,16 @@ if __name__ == '__main__':
     file_name = Path(os.getcwd()+'/data/adult.csv')
     dataset = income_dataset.IncomeDataset(file_name)
 
-    # Split into training and test
-    train_size = int(0.8 * len(dataset))
-    test_size = len(dataset) - train_size
-    trainset, testset = random_split(dataset, [train_size, test_size])
+    # Split dataset
+    train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(dataset, [0.8, 0.1, 0.1])
 
     # Dataloaders
-    train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)
-    test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False)
-    
-    n_features = 14
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    n_features = dataset.n_features
     
     # update args and print
-    #settings = dotdict()
-    #settings['save_dir'] = "snapshot"
-
-    #embeddings, word_to_indx = embedding.get_embedding_tensor(args)
-
-    #train_data, dev_data, test_data = dataset_factory.get_dataset(args, word_to_indx)
-
     results_path_stem = args.results_path.split('/')[-1].split('.')[0]
     #args.model_path = '{}.pt'.format(os.path.join(args.save_dir, results_path_stem))
     args.model_path = Path(os.getcwd() + f'/{args.save_dir}/model.pt')
@@ -60,24 +51,12 @@ if __name__ == '__main__':
     # model
     gen, model = model_factory.get_model(args, n_features)
 
-    print()
     # train
     if args.train:
-        epoch_stats, model, gen = train.train_model(train_loader, test_loader, model, gen, args)
-        args.epoch_stats = epoch_stats
-        save_path = args.results_path
-        print("Save train/dev results to", save_path)
-        args_dict = vars(args)
-        pickle.dump(args_dict, open(save_path,'wb') )
+        epoch_stats, model, gen = train.train_model(train_loader, valid_loader, model, gen, args)
+        print(epoch_stats)
 
     # test
     if args.test:
-        test_stats = train.test_model(test_data, model, gen, args)
-        args.test_stats = test_stats
-        args.train_data = train_data
-        args.test_data = test_data
-
-        save_path = args.results_path
-        print("Save test results to", save_path)
-        args_dict = vars(args)
-        pickle.dump(args_dict, open(save_path,'wb'))
+        test_stats = train.test_model(test_loader, model, gen, args)
+        print(test_stats)

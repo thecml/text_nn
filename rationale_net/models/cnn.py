@@ -16,7 +16,7 @@ class CNN(nn.Module):
             for filt in args.filters:
                 in_channels = 14 if layer == 0 else args.filter_num * len( args.filters)
                 kernel_size = filt
-                new_conv = nn.Conv1d(in_channels=in_channels, out_channels=args.filter_num, kernel_size=kernel_size)
+                new_conv = nn.Conv1d(in_channels=in_channels, out_channels=14, kernel_size=kernel_size)
                 self.add_module( 'layer_'+str(layer)+'_conv_'+str(filt), new_conv)
                 convs.append(new_conv)
 

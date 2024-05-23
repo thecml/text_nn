@@ -13,8 +13,8 @@ def get_model(args, n_features):
             gen = empty.Empty()
             model = tagger.TaggerTab(args)
         else:
-            gen = generator.GeneratorTab(n_features, args)
-            model = encoder.EncoderTab(n_features, args)
+            gen = generator.Generator(n_features, args)
+            model = encoder.Encoder(n_features, args)
     else:
         print('\nLoading model from [%s]...' % args.snapshot)
         try:

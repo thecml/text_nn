@@ -26,7 +26,7 @@ def get_train_loader(train_data, args):
 
     return train_loader
 
-def get_rationales(mask, text):
+def get_rationales_text(mask, text):
     if mask is None:
         return text
     masked_text = []
@@ -38,8 +38,13 @@ def get_rationales(mask, text):
         masked_text.append(masked_sample)
     return masked_text
 
-
-
+def get_rationales(mask):
+    ft_names = list()
+    for sample in mask:
+        ft_indicies = np.argwhere(sample > 0.5)
+        ft_names.append([f'x_{idx+1}' for idx in ft_indicies.squeeze(0).numpy()])
+    return ft_names
+    
 def get_valid_loader(valid_data, args):
     valid_loader = data.DataLoader(
         valid_data,

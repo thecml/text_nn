@@ -12,7 +12,7 @@ import sklearn.metrics
 import rationale_net.utils.learn as learn
 
 
-def train_model(train_data, valid_data, model, gen, args):
+def train_model(train_loader, valid_loader, model, gen, args):
     '''
     Train model and tune on valid set. If model doesn't improve valid performance within args.patience
     epochs, then halve the learning rate, restore the model to best and continue training.
@@ -36,18 +36,15 @@ def train_model(train_data, valid_data, model, gen, args):
     tuning_key = "valid_{}".format(args.tuning_metric)
     best_epoch_func = min if tuning_key == 'loss' else max
 
-    train_loader = train_data # learn.get_train_loader(train_data, args)
-    valid_loader = valid_data # learn.get_valid_loader(valid_data, args)
-
     for epoch in range(1, args.epochs + 1):
 
         print("-------------\nEpoch {}:\n".format(epoch))
-        for mode, dataset, loader in [('Train', train_data, train_loader), ('Valid', valid_data, valid_loader)]:
+        for mode, data_loader in [('Train', train_loader), ('Valid', valid_loader)]:
             train_model = mode == 'Train'
             print('{}'.format(mode))
             key_prefix = mode.lower()
             epoch_details, step, _, _, _, _ = run_epoch(
-                data_loader=loader,
+                data_loader=data_loader,
                 train_model=train_model,
                 model=model,
                 gen=gen,
@@ -104,20 +101,13 @@ def train_model(train_data, valid_data, model, gen, args):
     return epoch_stats, model, gen
 
 
-def test_model(test_data, model, gen, args):
+def test_model(test_loader, model, gen, args):
     '''
     Run model on test data, and return loss, accuracy.
     '''
     if args.cuda:
         model = model.cuda()
         gen = gen.cuda()
-
-    test_loader = torch.utils.data.DataLoader(
-        test_data,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-        drop_last=False)
 
     test_stats = metrics.init_metrics_dictionary(modes=['test'])
 
@@ -172,70 +162,57 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
     if train_model:
         num_batches_per_epoch = min(len(data_loader), 10000)
 
-    for _ in tqdm.tqdm(range(num_batches_per_epoch)):
-        
-        for i, (inputs, labels) in enumerate(data_loader):
-            
-            #batch = next(data_iter)
-            if train_model:
-                step += 1
-                if  step % 100 == 0 or args.debug_mode:
-                    args.gumbel_temprature = max( np.exp((step+1) *-1* args.gumbel_decay), .05)
+    for i, (inputs, labels) in enumerate(data_loader):
+        if train_model:
+            step += 1
+            if  step % 100 == 0 or args.debug_mode:
+                args.gumbel_temprature = max( np.exp((step+1) *-1* args.gumbel_decay), .05)
 
-            #x_indx = learn.get_x_indx(batch, args, eval_model)
-            x_indx = inputs
-            x_indx = x_indx[:, None, :]
-            #text = batch['text'] # TODO
-            #y = autograd.Variable(batch['y'], volatile=eval_model)
-            y = labels
+        x_indx = inputs
+        x_indx = x_indx[:, :, None]
+        y = labels
 
-            if args.cuda:
-                x_indx, y = x_indx.cuda(), y.cuda()
+        if args.cuda:
+            x_indx, y = x_indx.cuda(), y.cuda()
 
-            if train_model:
-                optimizer.zero_grad()
+        if train_model:
+            optimizer.zero_grad()
 
-            if args.get_rationales:
-                mask, z = gen(x_indx)
-            else:
-                mask = None
+        if args.get_rationales:
+            mask, z = gen(x_indx)
+        else:
+            mask = None
 
-            logits = model(x_indx.float(), mask=mask)
+        logits = model(x_indx.float(), mask=mask)
 
-            if args.use_as_tagger:
-                logits = logits.view(-1, 2)
-                y = y.view(-1)
+        if args.use_as_tagger:
+            logits = logits.view(-1, 2)
+            y = y.view(-1)
 
-            loss = get_loss(logits, y.long(), args)
-            obj_loss = loss
+        loss = get_loss(logits, y.long(), args)
+        obj_loss = loss
 
-            if args.get_rationales:
-                #selection_cost, continuity_cost = gen.loss(mask, x_indx) # TODO
-                selection_cost = gen.loss(mask, x_indx)
-                
-                loss += args.selection_lambda * selection_cost
-                #loss += args.continuity_lambda * continuity_cost # TODO
+        if args.get_rationales:
+            selection_cost = gen.loss(mask, x_indx)
+            loss += args.selection_lambda * selection_cost
 
-            if train_model:
-                loss.backward()
-                optimizer.step()
+        if train_model:
+            loss.backward()
+            optimizer.step()
 
-            if args.get_rationales:
-                k_selection_losses.append(selection_cost.detach().numpy())
-                #k_continuity_losses.append( generic.tensor_to_numpy(continuity_cost)) # TODO
+        if args.get_rationales:
+            k_selection_losses.append(selection_cost.detach().numpy())
 
-            obj_losses.append(obj_loss.detach().numpy())
-            losses.append(loss.detach().numpy())
-            batch_softmax = F.softmax(logits, dim=-1).cpu()
-            preds.extend(torch.max(batch_softmax, 1)[1].view(y.size()).data.numpy())
+        obj_losses.append(obj_loss.detach().numpy())
+        losses.append(loss.detach().numpy())
+        batch_softmax = F.softmax(logits, dim=-1).cpu()
+        preds.extend(torch.max(batch_softmax, 1)[1].view(y.size()).data.numpy())
+        rationales.extend(learn.get_rationales(mask))
 
-            #texts.extend(text) # TODO 
-            #rationales.extend(learn.get_rationales(mask, text)) # TODO
-
-            if args.use_as_tagger:
-                golds.extend(labels.view(-1).numpy())
-            else:
-                golds.extend(labels.numpy())
+        if args.use_as_tagger:
+            golds.extend(labels.view(-1).numpy())
+        else:
+            golds.extend(labels.numpy())
 
     epoch_metrics = metrics.get_metrics(preds, golds, args)
 
@@ -249,7 +226,6 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
 
     if args.get_rationales:
         epoch_stat['k_selection_loss'] = np.mean(k_selection_losses)
-        epoch_stat['k_continuity_loss'] = np.mean(k_continuity_losses)
 
     return epoch_stat, step, losses, preds, golds, rationales
 

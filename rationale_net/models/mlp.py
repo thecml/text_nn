@@ -15,19 +15,18 @@ class MLP(nn.Module):
         
         for layer in range(args.num_layers):
             dense_layers = nn.ModuleList()
-            for filt in args.filters:
-                if layer == 0:
-                    in_features = input_dim  # Use the input dimension for the first layer
-                else:
-                    in_features = input_dim  # Adjust input features based on previous layers
-                
-                # Out features remain same as number of filters
-                out_features = args.filter_num
-                new_dense = nn.Linear(in_features, out_features)
-                self.add_module('layer_' + str(layer) + '_dense_' + str(filt), new_dense)
-                dense_layers.append(new_dense)
+            if layer == 0:
+                in_features = input_dim  # Use the input dimension for the first layer
+            else:
+                in_features = args.hidden_dim  # Adjust input features based on previous layers
             
-            self.layers.append(dense_layers)
+            # Out features remain same as number of filters
+            out_features = 14
+            new_dense = nn.Linear(in_features, out_features)
+            self.add_module('layer_' + str(layer) + '_dense_', new_dense)
+            dense_layers.append(new_dense)
+            
+        self.layers.append(dense_layers)
 
     def forward(self, x):
         batch_size = x.size(0)
