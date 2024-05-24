@@ -10,7 +10,7 @@ import numpy as np
 import pdb
 import sklearn.metrics
 import rationale_net.utils.learn as learn
-
+from collections import defaultdict
 
 def train_model(train_loader, valid_loader, model, gen, args):
     '''
@@ -149,7 +149,7 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
     golds = []
     losses = []
     texts = []
-    rationales = []
+    rationales = defaultdict(int)
 
     if train_model:
         model.train()
@@ -207,7 +207,10 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
         losses.append(loss.detach().numpy())
         batch_softmax = F.softmax(logits, dim=-1).cpu()
         preds.extend(torch.max(batch_softmax, 1)[1].view(y.size()).data.numpy())
-        rationales.extend(learn.get_rationales(mask))
+        batch_rationales = learn.get_rationales(mask)
+        for feature_list in batch_rationales:
+            for feature in feature_list:
+                rationales[feature] += 1
 
         if args.use_as_tagger:
             golds.extend(labels.view(-1).numpy())
@@ -226,6 +229,9 @@ def run_epoch(data_loader, train_model, model, gen, optimizer, step, args):
 
     if args.get_rationales:
         epoch_stat['k_selection_loss'] = np.mean(k_selection_losses)
+        
+    rationales = dict(rationales)
+    rationales = dict(sorted(rationales.items(), key=lambda item: item[1], reverse=True))
 
     return epoch_stat, step, losses, preds, golds, rationales
 

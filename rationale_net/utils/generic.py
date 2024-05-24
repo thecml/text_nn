@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument('--objective', default='cross_entropy', help='choose which loss objective to use: {cross_entropy, mse}')
     parser.add_argument('--aspect', default='overall', help='which aspect to train/eval on')
     parser.add_argument('--init_lr', type=float, default=0.001, help='initial learning rate [default: 0.001]')
-    parser.add_argument('--epochs', type=int, default=10, help='number of epochs for train [default: 10]')
+    parser.add_argument('--epochs', type=int, default=25, help='number of epochs for train [default: 10]')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size for training [default: 64]')
     parser.add_argument('--patience', type=int, default=10, help='Num epochs of no dev progress before half learning rate [default: 10]')
     parser.add_argument('--tuning_metric', type=str, default='loss', help='Metric to judge dev set results. Possible options loss, accuracy, precision, recall or f1, where precision/recall/f1 are all microaveraged. [default: loss]')
@@ -37,11 +37,10 @@ def parse_args():
     # model
     parser.add_argument('--model_form', type=str, default='mlp', help="Form of model, i.e cnn, rnn, etc.")
     parser.add_argument('--hidden_dim', type=int, default=100, help="Dim of hidden layer")
-    parser.add_argument('--num_layers', type=int, default=1, help="Num layers of model_form to use")
-    parser.add_argument('--dropout', type=float, default=0.1, help='the probability for dropout [default: 0.5]')
+    parser.add_argument('--num_layers', type=int, default=3, help="Num layers of model_form to use")
+    parser.add_argument('--dropout', type=float, default=0.25, help='the probability for dropout [default: 0.5]')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='L2 norm penalty [default: 1e-3]')
-    parser.add_argument('--filter_num', type=int, default=100, help='number of each kind of kernel')
-    parser.add_argument('--filters', type=str, default='3,4,5', help='comma-separated kernel size to use for convolution')
+    
     # data
     parser.add_argument('--dataset', default='news_group', help='choose which dataset to run on. [default: news_group]')
     parser.add_argument('--embedding', default='glove', help='choose what embeddings to use. To use them, please download them to "embeddings/glove.6B.300d.txt and set this argument to "glove" [default: random] ')
@@ -62,7 +61,6 @@ def parse_args():
     args = parser.parse_args()
 
     # update args and print
-    args.filters = [int(k) for k in args.filters.split(',')]
     if args.objective == 'mse':
         args.num_class = 1
 

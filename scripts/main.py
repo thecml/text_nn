@@ -5,6 +5,7 @@ import argparse
 
 import rationale_net.datasets.factory as dataset_factory
 import rationale_net.datasets.income_dataset as income_dataset
+import rationale_net.datasets.synthetic_dataset as synthetic_dataset
 import rationale_net.utils.embedding as embedding
 import rationale_net.utils.model as model_factory
 import rationale_net.utils.generic as generic
@@ -30,8 +31,7 @@ if __name__ == '__main__':
     args = generic.parse_args()
     
     # Load dataset
-    file_name = Path(os.getcwd()+'/data/adult.csv')
-    dataset = income_dataset.IncomeDataset(file_name)
+    dataset = synthetic_dataset.SyntheticDataset()
 
     # Split dataset
     train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(dataset, [0.8, 0.1, 0.1])
