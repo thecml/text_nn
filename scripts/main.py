@@ -43,8 +43,6 @@ if __name__ == '__main__':
     n_features = dataset.n_features
     
     # update args and print
-    results_path_stem = args.results_path.split('/')[-1].split('.')[0]
-    #args.model_path = '{}.pt'.format(os.path.join(args.save_dir, results_path_stem))
     args.model_path = Path(os.getcwd() + f'/{args.save_dir}/model.pt')
 
     # model

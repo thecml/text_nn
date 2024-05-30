@@ -20,7 +20,8 @@ class SyntheticDataset(Dataset):
         
         # Add noise
         num_additional_features = 8
-        additional_features = np.random.randn(10000, num_additional_features)
+        additional_features = np.random.normal(loc=0, scale=0.5,
+                                               size=(10000, num_additional_features))
         X = np.concatenate((X, additional_features), axis=1)
         
         # Convert to float32

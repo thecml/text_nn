@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument('--objective', default='cross_entropy', help='choose which loss objective to use: {cross_entropy, mse}')
     parser.add_argument('--aspect', default='overall', help='which aspect to train/eval on')
     parser.add_argument('--init_lr', type=float, default=0.001, help='initial learning rate [default: 0.001]')
-    parser.add_argument('--epochs', type=int, default=25, help='number of epochs for train [default: 10]')
+    parser.add_argument('--epochs', type=int, default=20, help='number of epochs for train [default: 10]')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size for training [default: 64]')
     parser.add_argument('--patience', type=int, default=10, help='Num epochs of no dev progress before half learning rate [default: 10]')
     parser.add_argument('--tuning_metric', type=str, default='loss', help='Metric to judge dev set results. Possible options loss, accuracy, precision, recall or f1, where precision/recall/f1 are all microaveraged. [default: loss]')
@@ -47,7 +47,8 @@ def parse_args():
 
     # gumbel
     parser.add_argument('--gumbel_temprature', type=float, default=1, help="Start temprature for gumbel softmax. This is annealed via exponential decay")
-    parser.add_argument('--gumbel_decay', type=float, default=1e-5, help="Start decay for gumbel softmax. This is annealed via linear decay")
+    parser.add_argument('--gumbel_decay', type=float, default=1e-5, help="Start decay for gumbel softmax. This is annealed via linear decay") # 1e-5
+    
     # rationale
     parser.add_argument('--get_rationales',  action='store_true', default=True, help="output attributions for dataset. Note, will only be stored for test set in results file, as indicated by results_path")
     parser.add_argument('--selection_lambda', type=float, default=.01, help="y1 in Gen cost L + y1||z|| + y2|zt - zt-1| + y3|{z}|")
